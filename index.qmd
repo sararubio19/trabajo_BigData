@@ -1,0 +1,33 @@
+---
+title: "Análisis de la precariedad económica juvenil en España (2004-2024)"        
+about:
+  template: trestles 
+  image: "imagenes/portada2.jpg"
+  image-width: 16em         #- https://cybmeta.com/em-y-rem
+  image-shape: rectangle    #- {rectangle, round, rounded}
+  links:
+    - icon: envelope
+      text: e-mail
+      url: "mailto:saruro@alumni.uv.es"            
+    - icon: linkedin
+      text: LinkedIn
+      href: https://linkedin.com/saraarubio19   
+    - icon: github
+      text: Github
+      href: https://github.com/sararubio19        
+      
+#- embeed the source document 
+code-tools: false
+---
+        
+Hola, soy Sara Rubio
+      
+Esta web sirve para presentar el trabajo final individual para la asignatura "Programación y manejo de datos en la era Del Big Data", optativa de GECO en la Facultad de Economía de la Universitat de València.
+
+La web de la asignatura está [aquí](https://perezp44.github.io/intro-ds-25-26-web/){target="_blank"} y los trabajos de mis compañeros de curso puedes verlos [aquí](https://perezp44.github.io/intro-ds-25-26-web/05-trabajos-estudiantes.html){target="_blank"}.
+
+
+Mi trabajo lleva por título : "Análisis de la precariedad económica juvenil en España (2004-2024)". El objetivo es desgranar progresivamente los distintos factores que condicionan la realidad económica de los jóvenes. Para ello, se analiza la evolución temporal desde 2004, la posible existencia de brechas de género, el papel que juega el nivel formativo y el impacto de la desigualdad territorial.
+
+
+El trabajo puede verse [aquí](my_trabajo_BigData.html).

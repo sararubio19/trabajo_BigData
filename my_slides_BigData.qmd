@@ -1,0 +1,672 @@
+---
+title: "Análisis de la precariedad económica juvenil en España (2004-2024)"  #- título
+website:
+  title: "Análisis de la precariedad económica juvenil en España (2004-2024)"
+date: 2026-01-02              #- ISO8601 YYYY-MM-DD format 
+date-format: short
+format: 
+  revealjs:
+    theme: simple
+    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/84/R_language_logo.svg/120px-R_language_logo.svg.png"
+    slide-number: true
+    scrollable: true
+    slide-level: 2
+    height: 900
+    width: 1600
+    toc: false
+    center-title-slide: true
+    title-slide-attributes: 
+      data-background-color: "#1a4d2e" 
+      data-background-opacity: 0,2
+    preview-links: auto  #- true: abre un iframe en lugar de abrir ventana
+    link-external-newwindow: true
+    transition: fade
+    fontcolor: "#0e3b1e"
+    highlight-style: a11y
+    code-line-numbers: true
+    number-sections: false
+    incremental: false   
+footer: |
+  Slides hechas con [Quarto](https://quarto.org/) 
+#theme: moon
+echo: true
+eval: true
+---
+
+
+
+## Introducción {background-color="#f3f4f6"}
+
+::: columns
+::: {.column width="60%"}
+
+### Objetivo
+El objetivo de esta investigación no es señalar una única causa, sino desgranar progresivamente los distintos factores que condicionan la realidad económica de los jóvenes. Para ello, se analiza la evolución temporal desde 2004, la posible existencia de brechas de género, el papel que juega el nivel formativo y el impacto de la desigualdad territorial. En conjunto, este análisis busca ofrecer una visión amplia y basada en evidencias técnicas sobre los obstáculos estructurales que impiden la estabilidad financiera de la juventud española, sirviendo a su vez como base para profundizar en la materia en futuros proyectos de investigación.
+
+:::
+
+::: {.column width="40%"}
+![](https://thumbs.dreamstime.com/b/spanish-economy-financial-graph-national-flag-overlay-trading-charts-display-market-data-analysis-growth-indicators-396777290.jpg?w=992){.r-stretch style="border-radius: 15px; box-shadow: 5px 5px 15px rgba(0,0,0,0.3);"}
+:::
+:::
+
+---
+
+
+## Preparación de los datos:
+
+::: {.panel-tabset}
+
+### Los datos se pueden cargar en la memoria de de RStudio de esta forma:
+
+:::
+
+---
+
+
+```{r}
+#| label: setup-paquetes
+#| message: false
+#| warning: false
+
+# PAQUETES
+library(tidyverse)
+library(rio)
+library(plotly)
+library(mapSpain)
+library(sf)
+library(ggrepel)
+
+```
+
+------------------------------------------------------------------------
+
+## Descargar, limpiar datos y conversión de números
+
+```{r}
+#| label: setup-datos 
+#| message: false
+#| warning: false
+
+#DATOS
+
+ruta_capeconomica <- "./datos/capeco.csv" 
+capeconomica <- rio::import(ruta_capeconomica)
+
+```
+
+```{r}
+#| label: clean-data
+#| message: false
+#| warning: false
+
+capeconomica <- capeconomica %>%
+  drop_na() %>%                                     
+  mutate(Total = as.numeric(gsub(",", ".", Total)))
+
+ #Filtro de jóvenes y ordenación
+
+capeconomica_jovenes <- capeconomica %>%
+  filter(
+    Edad == "De 16 a 29 años",
+    Sexo %in% c("Hombres", "Mujeres") 
+  ) %>%
+  mutate(Periodo = as.numeric(Periodo)) %>%
+  arrange(Periodo) %>%
+  rename(
+    Dificultad = `Dificultad para llegar a fin de mes`,
+    Año = Periodo,
+    Porcentaje = Total
+  ) %>%
+  drop_na()
+
+```
+
+Los datos vienen del INE y lo primero que hacemos es filtrar para quedarnos solo con los jóvenes (16-29 años), que es el grupo que me interesa analizar. Al preparar la serie histórica, hay que tener en cuenta que en 2013 hay un salto en los datos porque el INE cambió su forma de medir. No es un error del código ni un cambio brusco en la economía, sino una mejora en la metodología que hay que conocer para no leer mal los gráficos después.
+
+Además del filtro de edad, he limpiado los datos sustituyendo las comas decimales por puntos para que R los reconozca como números. También he renombrado las columnas con etiquetas más cortas (como 'Año' o 'Dificultad') para simplificar el código y evitar errores, transformando la tabla bruta en una base de datos lista para el análisis.
+
+
+# 1 LA HERENCIA DE LAS CRISIS: EVOLUCIÓN HISTÓRICA DE LA PRECARIEDAD
+
+## 1.1 GRÁFICO EVOLUCIÓN DE LA PRECARIEDAD ECONÓMICA EN JÓVENES (2004-2024)
+
+```{r}
+#| label: plot_evolucion_general
+#| message: false
+#| warning: false
+
+ # Agrupamos las categorías para tener un total de "Dificultad"
+
+datos_agregados <- capeconomica_jovenes %>%
+  filter(Dificultad %in% c("Con mucha dificultad", "Con dificultad", "Con cierta dificultad")) %>%
+  group_by(Año, Sexo) %>%
+  summarise(Porcentaje_Total = sum(Porcentaje, na.rm = TRUE), .groups = "drop") %>%
+  mutate(texto_tooltip = paste0(
+    "<b>Año:</b> ", Año, "<br>",
+    "<b>Sexo:</b> ", Sexo, "<br>",
+    "<b>Dificultad acumulada:</b> ", round(Porcentaje_Total, 1), "%"
+  ))
+
+ # Creamos el gráfico
+
+plot_evolucion_general <- ggplot(datos_agregados, aes(x = Año, y = Porcentaje_Total, color = Sexo, group = Sexo)) +
+  geom_line(linewidth = 1.1) +
+  geom_point(aes(text = texto_tooltip)) +
+  scale_color_manual(values = c("Mujeres" = "#E3120B", "Hombres" = "#006BA2")) +
+  labs(
+    title = "Evolución de la precariedad económica en jóvenes",
+    subtitle = "Suma de: mucha dificultad, dificultad y cierta dificultad",
+    caption = "Elaboración propia a partir del INE",
+    y = "Porcentaje acumulado (%)",
+    x = "Año"
+  ) +
+  theme_minimal()
+
+ # Lo mostramos interactivo
+
+ggplotly(plot_evolucion_general, tooltip = "text")
+
+```
+
+
+Análisis del Gráfico 1.1
+
+El objetivo de este gráfico es visibilizar la vulnerabilidad económica de los jóvenes en España durante las últimas dos décadas.  No he querido limitarme a los datos de "pobreza extrema", sino que he agrupado las categorías de "mucha dificultad", "dificultad" y "cierta dificultad" para obtener una visión real de cuántos jóvenes viven al límite de sus posibilidades de ahorro.
+
+¿Por qué diferenciar entre hombres y mujeres? He decidido desglosar los datos por sexo para comprobar si la brecha de género que existe en el mercado laboral se traslada también a la percepción de suficiencia económica. Como se observa en la imagen, aunque ambas líneas siguen una trayectoria similar, existen periodos de divergencia que sugieren que las crisis no afectan por igual a ambos sexos.
+
+Épocas clave a destacar:
+  
+- El Pico de la Gran Recesión (2014): Se aprecia que la precariedad alcanzó su máximo histórico en torno a este año (superando el 70%). Es el reflejo del impacto tardío de la crisis de 2008 en los hogares jóvenes.
+
+- La Ruptura Metodológica de 2013: Es fundamental mencionar el salto visual en la serie entre 2012 y 2013. Como he señalado en la metodología, esto no se debe a un cambio súbito en la economía, sino a la mejora del INE al incorporar datos de la Agencia Tributaria.
+
+-El Valle de 2020 y el Repunte Actual: Es muy interesante ver cómo la dificultad baja hasta 2020 (su punto mínimo en la serie) pero vuelve a subir en los años más recientes (2022-2024). Esto demuestra que el actual contexto inflacionista está erosionando de nuevo la capacidad de llegar a fin de mes de la juventud española.
+
+## 1.2 GRÁFICO EVOLUCIÓN DE LA BRECHA DE GÉNERO EN LA PRECARIEDAD
+
+```{r}
+#| label: plot_brecha
+#| message: false
+#| warning: false
+
+datos_brecha <- datos_agregados %>%
+  select(Año, Sexo, Porcentaje_Total) %>%
+
+  distinct(Año, Sexo, .keep_all = TRUE) %>%
+  pivot_wider(names_from = Sexo, values_from = Porcentaje_Total) %>%
+
+  mutate(Diferencia = Mujeres - Hombres) %>%
+  drop_na(Diferencia)
+
+plot_brecha <- ggplot(datos_brecha, aes(x = Año, y = Diferencia)) +
+  geom_hline(yintercept = 0, color = "black", linewidth = 0.8) +
+  geom_area(fill = "#6A0DAD", alpha = 0.3) + 
+  geom_line(color = "#6A0DAD", linewidth = 1.1) +
+  geom_point(color = "#6A0DAD") +
+  labs(
+    title = "Evolución de la Brecha de Género en la Precariedad",
+    subtitle = "Diferencia real en puntos porcentuales (Mujeres - Hombres)",
+    x = "Año",
+    y = "Diferencia"
+  ) +
+  theme_minimal()
+
+ggplotly(plot_brecha)
+
+```
+
+
+Análisis del Gráfico 1.2
+
+Para tratar de explicar esa divergencia que he observado en el primer gráfico, he realizado un análisis de la 
+diferencia neta (Mujeres - Hombres). Mientras que en la evolución general las líneas parecen ir de la mano, este segundo gráfico actúa como una lupa estadística para observar quién sufre más la precariedad en cada momento.
+
+Es importante destacar que la brecha parece más accidentada debido al cambio en la escala de medida que he aplicado. Al pasar de una escala de 0-100 a una escala de puntos de diferencia, las variaciones mínimas se vuelven protagonistas, permitiéndome identificar patrones que de otro modo serían invisibles.
+
+Interpretación:
+  
+En cuanto a la volatilidad: He comprobado que la brecha oscila constantemente alrededor de cero, lo que indica que la precariedad no tiene un sesgo de género fijo en este grupo de edad.
+En cuanto la alternancia: Los picos de +/- 3 puntos demuestran que la vulnerabilidad financiera golpea de forma alterna a hombres y mujeres según la coyuntura del año.
+
+Por lo tanto el análisis sugiere que la precariedad es un rasgo generacional y transversal. El género es secundario frente a la incapacidad generalizada de ahorro de toda la juventud española.
+
+## 1.3 TABLA HITOS HISTÓRICOS: 2004, 2014 Y 2024 
+
+```{r}
+#| label: plot_media
+#| message: false
+#| warning: false
+
+datos_unificados <- datos_agregados %>%
+  group_by(Año) %>%
+  summarise(Porcentaje_Media = mean(Porcentaje_Total), .groups = "drop") %>%
+  filter(Año %in% c(2004, 2014, 2024)) %>%
+  mutate(Año_Factor = as.factor(Año))
+
+plot_media <- ggplot(datos_unificados, 
+                             aes(x = Año_Factor, y = Porcentaje_Media, fill = Año_Factor)) +
+  
+  geom_col(width = 0.6, alpha = 0.9) +
+  
+  geom_text(aes(label = paste0(round(Porcentaje_Media, 1), "%")), 
+            vjust = -0.5, size = 5, family = "serif", fontface = "bold") +
+  
+  labs(
+    title = "Evolución de la Precariedad Juvenil en España",
+    subtitle = "Hitos históricos: 2004, 2014 y 2024 (Media conjunta)",
+    x = "Año de referencia",
+    y = "Población con dificultades (%)",
+    caption = "Elaboración propia a partir de datos del INE"
+  ) +
+  
+  scale_fill_manual(values = c(
+    "2004" = "skyblue", 
+    "2014" = "orchid", 
+    "2024" = "gray70"
+  )) +
+  
+  theme_minimal() +
+  theme(
+    legend.position = "none", 
+    plot.title = element_text(size = 18, face = "bold", hjust = 0.5),
+    axis.text = element_text(family = "serif", size = 12, colour = "gray17"),
+    panel.grid.major = element_line(colour = "gray87", linetype = "dashed"),
+    panel.background = element_rect(fill = "white")
+  )
+
+plot_media
+
+```
+
+Análisis Tabla 1.3 
+
+En este punto, he decidido dejar de lado la distinción por sexos. Como ya he visto en los gráficos anteriores que hombres y mujeres están prácticamente en la misma situación, lo que me interesa ahora es entender cómo ha evolucionado el problema para toda mi generación en tres momentos clave.
+
+Mis conclusiones sobre los datos:
+  
+El "misterio" de 2004 y el mileurismo: Me ha sorprendido ver que en 2004 la precariedad era más alta (64.4%) que ahora (52.2%). Mi lectura es que, aunque entonces había mucho empleo, fue cuando nació el concepto de "mileurista": jóvenes con trabajo pero que con 1.000€ no podían ni plantearse ahorrar por culpa de la burbuja inmobiliaria.
+
+El peor momento (2014): El 72.8% de 2014 es una cifra durísima que refleja el pico real de la crisis. Es el recordatorio de lo mal que lo pasaron los hogares jóvenes tras el estallido de 2008.
+
+2024 y el problema estructural: Aunque el 52.2% es el dato "más bajo", me parece preocupante. Que hoy en día todavía la mitad de los jóvenes diga que vive al límite demuestra que esto no es una crisis puntual, sino un problema estructural de nuestro sistema económico. Da igual que la economía parezca mejorar; la dificultad para ahorrar se ha quedado estancada en la mitad de la población joven
+
+
+# 2 EL ESCUDO DE LA FORMACIÓN: ¿ES EL TÍTULO UN SEGURO CONTRA LA CRISIS?
+
+Para ver si tener más formación ayuda realmente a llegar a fin de mes, he conectado el script directamente a la base de datos del INE con el ID de tabla 9986. En lugar de ir descargando archivos a mano, he preferido que el programa importe toda la serie histórica solo. Así puedo comparar de golpe qué ha pasado desde 2004 hasta hoy y comprobar si tener estudios superiores marca una diferencia real o si la precariedad nos afecta a todos por igual, independientemente de los títulos.
+
+
+```{r}
+#| label: setup-formación
+#| message: false
+#| warning: false
+
+url_formacion <- "https://www.ine.es/jaxiT3/files/t/es/csv_bdsc/9986.csv"
+datos_formacion <- rio::import(url_formacion)
+
+```
+
+```{r}
+#| label: clean-data-formación
+#| message: false
+#| warning: false
+
+ datos_estudios <- datos_formacion %>%
+  mutate(Total = as.numeric(gsub(",", ".", Total))) %>%
+  rename(
+    Dificultad = `Dificultad para llegar a fin de mes`,
+    Estudios = `Nivel de formación alcanzado`,
+    Año = Periodo
+  ) %>%
+
+  filter(
+    Estudios != "Total",
+    Dificultad != "Total"
+  ) %>%
+  drop_na(Total)
+
+# Agrupamos dificultades 
+
+datos_estudios_agregados <- datos_estudios %>%
+  filter(
+    Dificultad %in% c("Con mucha dificultad", "Con dificultad", "Con cierta dificultad"),
+    Estudios != "No consta"  # <--- Limpieza temprana
+  ) %>%
+  group_by(Año, Estudios) %>%
+  summarise(Precariedad_Total = sum(Total, na.rm = TRUE), .groups = "drop")
+
+```
+
+## 2.1 GRÁFICO EVOLUCIÓN DE LA PRECARIEDAD SEGÚN NIVEL DE ESTUDIOS
+
+```{r}
+#| label: plot_estudios
+#| message: false
+#| warning: false
+
+datos_grafico_estudios <- datos_estudios_agregados %>%
+  mutate(texto_tooltip = paste0(
+    "<b>Año:</b> ", Año, "<br>",
+    "<b>Nivel:</b> ", Estudios, "<br>",
+    "<b>Precariedad:</b> ", round(Precariedad_Total, 1), "%"
+  ))
+
+plot_estudios <- ggplot(datos_grafico_estudios, aes(x = Año, y = Precariedad_Total, color = Estudios, group = Estudios)) +
+  geom_line(linewidth = 1) +
+  geom_point(aes(text = texto_tooltip)) +
+  scale_color_manual(values = c(
+    "Educación superior" = "#00441B",         
+    "Educación secundaria segunda etapa" = "#1B7837", 
+    "Educación secundaria primera etapa" = "#5AAE61", 
+    "Educación primaria o inferior" = "#A6DBA0"      
+  )) +
+  labs(
+    title = "Precariedad económica según nivel de formación",
+    subtitle = "Evolución histórica (2004-2024)",
+    y = "Porcentaje con dificultades (%)",
+    x = "Año",
+    color = "Nivel de formación",
+    caption = "Elaboración propia a partir del INE"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    text = element_text(family = "serif"),
+    plot.title = element_text(face = "bold", size = 16)
+  )
+
+ggplotly (plot_estudios, tooltip = "text")
+
+```
+
+
+Análisis del Gráfico 2.1
+
+Tras observar la evolución de las cuatro categorías, la primera conclusión es evidente: la formación académica actúa como un amortiguador de la precariedad, pero no es un seguro total contra las crisis globales.
+
+Lo que más me llama la atención es esa especie de "escalera" que se forma en el gráfico y que casi nunca se rompe. Se ve claramente que tener Educación Superior (la línea verde más oscura) te mantiene siempre en una posición de mucha más ventaja, normalmente unos 20 puntos por debajo de los que solo tienen estudios primarios. Es como si el título fuera un colchón que te separa del golpe más duro.Si conecto esto con lo que analicé en el Bloque 1, me doy cuenta de que en 2014 la crisis fue tan bestia que ni siquiera el título universitario sirvió de mucho. En ese momento, todas las líneas subieron a la vez y casi la mitad de los graduados también estaban pasándolo mal para llegar a fin de mes. Ahí se ve que, cuando la economía se hunde de verdad, nos acaba salpicando a todos.Lo que más me preocupa es lo que pasa al final, a partir de 2020. 
+
+Mientras que los que tenemos o vamos a tener estudios superiores parece que aguantamos mejor el tirón de la inflación y los precios, los que tienen estudios básicos siguen atrapados en una precariedad de más del 50%. 
+
+Al final, mi lectura es que estudiar no te quita el miedo a no llegar a fin de mes, pero sí que te da un "suelo" mucho más firme: no es lo mismo tener una probabilidad de 1 entre 3 de estar ahogado económicamente que tenerla de 1 entre 2.
+
+
+## 2.2 GRÁFICO LA BRECHA DE LA FORMACIÓN: COMPARATIVA 2004 VS 2024
+
+```{r}
+#| label: plot_brecha_estudios
+#| message: false
+#| warning: false
+
+datos_brecha_estudios <- datos_estudios_agregados %>%
+  filter(Año %in% c(2004, 2024)) %>%
+  pivot_wider(names_from = Año, values_from = Precariedad_Total) %>%
+  rename(Inicio = `2004`, Actualidad = `2024`)
+
+plot_brecha_estudios <- ggplot(datos_brecha_estudios) +
+  geom_segment(aes(x = Inicio, xend = Actualidad, y = reorder(Estudios, Actualidad), yend = Estudios), 
+               color = "grey80", linewidth = 2) +
+
+  geom_point(aes(x = Inicio, y = Estudios), color = "#A6DBA0", size = 5) +
+
+  geom_text(aes(x = Inicio, y = Estudios, label = paste0(round(Inicio, 1), "%")), 
+            vjust = -1.5, size = 3.5, family = "serif", color = "#666666") +
+  
+  
+  geom_point(aes(x = Actualidad, y = Estudios), color = "#00441B", size = 5) +
+  
+  geom_text(aes(x = Actualidad, y = Estudios, label = paste0(round(Actualidad, 1), "%")), 
+            vjust = -1.5, size = 4, fontface = "bold", family = "serif", color = "#00441B") +
+  
+  labs(
+    title = "Evolución de la Brecha de Precariedad (2004-2024)",
+    subtitle = "Comparativa del porcentaje con dificultades según nivel de formación",
+    x = "Porcentaje (%)",
+    y = "",
+    caption = "Nota: Punto claro: 2004 | Punto oscuro: 2024"
+  ) +
+  theme_minimal() +
+  theme(
+    text = element_text(family = "serif"),
+    plot.title = element_text(face = "bold", size = 16),
+    panel.grid.minor = element_blank(),
+    axis.text.y = element_text(size = 11, face = "bold"),
+    plot.margin = margin(10, 10, 10, 10)
+  )
+
+plot_brecha_estudios
+
+```
+
+Análisis del Gráfico 2.2
+
+Lo primero que salta a la vista al ver estas "pesas" es que todos los grupos han mejorado. Da igual el nivel de estudios que tengas: todas las bolas oscuras (2024) están a la izquierda de las claras (2004), lo que significa que hoy hay menos gente "ahogada" que hace veinte años.
+
+Pero si miramos los números con detalle, la cosa cambia:
+  
+El éxito de la formación superior: Es el grupo que más camino ha recorrido. Ver que los universitarios han bajado del 44,1% al 33,7% nos confirma lo que ya intuíamos en el gráfico de líneas: tener una carrera o una FP superior es lo que más te ayuda a salir de esa zona de peligro.
+
+El estancamiento de la base: Lo que más nos puede preocupar es la parte de arriba del gráfico. Aunque la gente con estudios primarios ha bajado mucho su precariedad (del 71,3% al 51,7%), siguen estando en niveles altísimos. De hecho, los que se quedaron en la primera etapa de secundaria están hoy peor que los universitarios de hace 20 años (56,9% frente a 44,1%).
+
+Si recordamos el primer gráfico, vimos que la precariedad general está estancada en el 52,2%, este gráfico nos da la explicación de por qué pasa eso. No es que todos estemos igual; es que hay una brecha enorme. Mientras un grupo "vuela" hacia la tranquilidad económica, los otros siguen lastrados por debajo de la mitad de la tabla.
+
+
+# 3 LA GEOGRAFÍA DE LA DESIGUALDAD: BRECHAS TERRITORIALES Y FACTORES EXTERNOS
+
+## 3.1 MAPA COROPLÉTICO DISTRIBUCIÓN TERRITORIAL DE LA PRECARIEDAD EN ESPAÑA (2023)
+
+Para este bloque territorial, es necesario importar una nueva tabla de microdatos del INE. A diferencia de los datos anteriores, este archivo incluye el desglose específico por Comunidades Autónomas para el año 2023, lo que nos permite cruzar la información económica con la cartografía oficial de España.
+
+```{r}
+#| label: setup-ccaa
+#| message: false
+#| warning: false
+
+ruta_ccaa <- "./datos/CCAA.csv"
+datos_ccaa <- import(ruta_ccaa)
+
+```
+
+```{r}
+#| label: clean-data-ccaa
+#| message: false
+#| warning: false
+
+precariedad_ccaa <- datos_ccaa %>%
+  mutate(Total = as.numeric(gsub(",", ".", Total))) %>%
+  rename(
+    ccaa_original = `Comunidades y Ciudades Autónomas`,
+    Dificultad = `Dificultad para llegar a fin de mes`,
+    Año = Periodo
+  ) %>%
+  filter(
+    Año == 2023,
+    ccaa_original != "Total Nacional",
+    Dificultad %in% c("Con mucha dificultad", "Con dificultad", "Con cierta dificultad")
+  ) %>%
+  group_by(ccaa_original) %>%
+  summarise(porcentaje_precariedad = sum(Total, na.rm = TRUE)) %>%
+  mutate(ccaa_limpia = gsub("^[0-9]{2} ", "", ccaa_original))
+
+geometria_ccaa <- esp_get_ccaa(moveCAN = TRUE) %>%
+  mutate(ccaa_match = case_when(
+    ine.ccaa.name == "País Vasco" ~ "País Vasco",
+    ine.ccaa.name == "Cataluña" ~ "Cataluña",
+    ine.ccaa.name == "Castilla y León" ~ "Castilla y León",
+    ine.ccaa.name == "Murcia, Región de" ~ "Murcia, Región de",
+    ine.ccaa.name == "Andalucía" ~ "Andalucía",
+    ine.ccaa.name == "Aragón" ~ "Aragón",
+    ine.ccaa.name == "Comunitat Valenciana" ~ "Comunitat Valenciana",
+    ine.ccaa.name == "Balears, Illes" ~ "Balears, Illes",
+    ine.ccaa.name == "Castilla - La Mancha" ~ "Castilla - La Mancha",
+    ine.ccaa.name == "Madrid, Comunidad de" ~ "Madrid, Comunidad de",
+    ine.ccaa.name == "Navarra, Comunidad Foral de" ~ "Navarra, Comunidad Foral de",
+    ine.ccaa.name == "Rioja, La" ~ "Rioja, La",
+    ine.ccaa.name == "Asturias, Principado de" ~ "Asturias, Principado de",
+    TRUE ~ ine.ccaa.name
+  ))
+
+mapa_final <- geometria_ccaa %>%
+  left_join(precariedad_ccaa, by = c("ccaa_match" = "ccaa_limpia")) %>%
+  mutate(texto_tooltip = paste0(
+    "<b>Comunidad:</b> ", ccaa_match, "<br>",
+    "<b>Precariedad:</b> ", round(porcentaje_precariedad, 1), "%"
+  ))
+
+```
+
+
+```{r}
+#| label: mapa_interactivo
+#| message: false
+#| warning: false
+
+plot_base <- ggplot(mapa_final) +
+  geom_sf(aes(fill = porcentaje_precariedad, text = texto_tooltip), 
+          color = "white", size = 0.2) +
+  scale_fill_viridis_c(option = "magma", direction = -1, name = "% Precariedad") +
+  labs(
+    title = "Distribución Territorial de la Precariedad (2023)",
+    subtitle = "Pasa el ratón para ver los datos por CCAA"
+  ) +
+  theme_void() +
+  theme(plot.title = element_text(face = "bold", hjust = 0.5))
+
+mapa_interactivo <- ggplotly(plot_base, tooltip = "text") %>%
+  layout(annotations = list(
+    x = 1, y = -0.05, 
+    text = "Fuente: Elaboración propia a partir de INE", 
+    showarrow = F, 
+    xref='paper', yref='paper', 
+    xanchor='right', yanchor='auto', 
+    xshift=0, yshift=0,
+    font = list(size = 10, color = "gray")
+  ))
+
+mapa_interactivo
+
+```
+
+ANÁLISIS MAPA 3.1 
+
+He decidido añadir este análisis por comunidades porque me parece fundamental entender que la precarieda no afecta a todos por igual. No podemos hablar de los jóvenes españoles como un grupo unido si no tenemos en cuenta la situación territorial, ya que, dependiendo de dónde vivas, tu realidad económica cambia por completo.
+
+El objetivo de este gráfico es demostrar que no todos los jóvenes contamos con el mismo punto de partida. Mientras que en algunas zonas es "más fácil" tener un pequeño margen para el ahorro, en otras comunidades la situación es tan asfixiante que el simple hecho de plantearse guardar dinero es casi imposible. Con este mapa quiero reflejar esas desigualdades que muchas veces no se ven en los datos generales del país.
+
+Al "jugar" con el mapa interactivo y pasar el ratón por las distintas zonas, la diferencia es clarísima: 
+
+Zonas donde ahorrar es casi imposible: En sitios como Andalucía o Canarias, los niveles de dificultad económica pasan del 55%. Es una locura. Si más de la mitad de la población de tu entorno vive así, para un joven el ahorro no es una opción, es una utopía porque todo se va en sobrevivir.
+
+Zonas con más "aire": En cambio, en el País Vasco o Navarra, la cifra baja al 33%. Sigue siendo alta, pero ese margen de diferencia es el que permite que un joven en el norte tenga, por estadística, más capacidad de empezar a guardar algo de dinero que uno en el sur.
+
+Lo que este mapa me confirma es que el ahorro en España es, en gran parte, geográfico. No es solo cuestión de organizarse bien; es que si el entorno te asfixia con los gastos básicos, el ahorro se convierte en una imposibilidad estructural por el simple hecho de vivir donde vives.
+
+## 3.2 GRÁFICO RELACIÓN ENTRE ABANDONO ESCOLAR Y PRECARIEDAD ECONÓMICA POR CCAA.
+
+Finalmente, para comprobar si existe una correlación entre formación y precariedad a nivel regional, incorporamos un tercer dataset con la Tasa de Abandono Educativo. Al importar estos datos, podemos realizar un join con nuestras variables económicas y verificar estadísticamente si las regiones con menor nivel educativo son también las que presentan mayores índices de vulnerabilidad.
+
+```{r}
+#| label: setup-abandono
+#| message: false
+#| warning: false
+
+ruta_abandono <- "./datos/abandono.csv"
+datos_abandono <- rio::import(ruta_abandono, sep = ";")
+
+```
+
+```{r}
+#| label: clean-data-abandono
+#| message: false
+#| warning: false
+
+abandono_2023 <- datos_abandono %>%
+  rename(
+    ccaa_original = 2, 
+    periodo = 3,       
+    tasa = 4           
+  ) %>%
+  filter(periodo == 2023) %>%
+  mutate(tasa = as.numeric(gsub(",", ".", tasa))) %>%
+  mutate(ccaa_limpia = gsub("^[0-9]{2} ", "", ccaa_original)) %>%
+  filter(!is.na(ccaa_limpia) & ccaa_limpia != "")
+  
+```
+
+
+```{r}
+#| label: datos_relacion
+#| message: false
+#| warning: false
+
+datos_relacion <- precariedad_ccaa %>%
+  left_join(abandono_2023, by = "ccaa_limpia")
+
+ggplot(datos_relacion, aes(x = tasa, y = porcentaje_precariedad)) +
+  geom_point(aes(color = porcentaje_precariedad), size = 5) +
+  geom_smooth(method = "lm", color = "black", linetype = "dashed", se = FALSE) +
+  geom_text_repel(aes(label = ccaa_limpia), size = 3, max.overlaps = Inf) +
+  scale_color_viridis_c(option = "magma", direction = -1) +
+  labs(
+    title = "RELACIÓN ENTRE ABANDONO ESCOLAR Y PRECARIEDAD ECONÓMICA POR CCAA",
+    subtitle = "Relación entre formación y dificultad económica por CCAA (2023)",
+    x = "% Abandono Educativo Temprano (18-24 años)",
+    y = "% Población con dificultades (Precariedad)",
+    caption = "Fuente: Elaboración propia a partir del INE"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none", plot.title = element_text(face = "bold")
+  )
+
+```
+
+ANÁLISIS GRÁFICO 3.2
+
+Después de ver el mapa y ahora este gráfico de dispersión, creo que la conclusión es bastante clara: la formación es un escudo, pero el territorio es el que marca las reglas del juego.
+
+En el bloque anterior vimos que, a nivel general, estudiar más ayuda a tener mejores ingresos. Aquí, al cruzar el Abandono Escolar con la Precariedad, los datos me dan la razón. Si te fijas en la línea discontinua, se ve una tendencia clara: cuanta más gente deja de estudiar en una comunidad, más familias tienen dificultades para llegar a fin de mes. Es un círculo vicioso: menos estudios, trabajos más precarios y, por tanto, cero capacidad de ahorro.
+
+Como ya adelantaba el mapa del principio del bloque, comunidades como País Vasco o Navarra están en la zona "segura" del gráfico (abajo a la izquierda). Tienen muy poco abandono escolar y eso se traduce en que son las que menos sufren para llegar a fin de mes. En cambio, en el otro extremo (arriba a la derecha), vemos zonas como Andalucía o Murcia, donde el abandono es mucho más alto y la precariedad se dispara.
+
+Lo que más me ha sorprendido es que la línea no es perfecta. Hay comunidades que se salen un poco de la norma. Esto me hace pensar que, aunque estudiar es clave para poder ahorrar, hay "muros" que la formación no puede saltar por sí sola, como el precio de la vivienda en las grandes ciudades o la falta de industria en algunas regiones.
+
+
+# 4 CONCLUSIONES: HACIA UN MODELO REAL DE AHORRO JUVENIL
+
+## 4.1 RESUMEN INTEGRADO DE LOS FACTORES DE PRECARIEDAD
+
+Los análisis realizados en los bloques anteriores muestran que la precariedad económica entre los jóvenes es un fenómeno persistente y generalizado. Los gráficos temporales evidencian que una proporción elevada de jóvenes declara dificultades para llegar a fin de mes incluso en periodos de crecimiento económico, lo que apunta a un componente estructural del problema.
+
+Las desagregaciones por sexo indican diferencias reducidas y poco estables en el tiempo, mientras que el nivel educativo sí introduce una gradación clara, aunque insuficiente para eliminar la precariedad en contextos de crisis. Por último, el análisis territorial revela una elevada heterogeneidad entre comunidades autónomas, sugiriendo que el contexto regional condiciona de forma significativa la capacidad económica juvenil. En conjunto, los resultados refuerzan la idea de que la limitada capacidad de ahorro de los jóvenes responde más a factores estructurales que a decisiones individuales aisladas.
+
+## 4.2 LIMITACIONES ESTRUCTURALES DEL AHORRO JUVENIL
+
+Aunque muchos jóvenes desearían ahorrar, los datos muestran que más de la mitad no dispone del excedente necesario para hacerlo. La explicación no está en la falta de voluntad, sino en factores estructurales: salarios bajos, costes de vivienda elevados y desigualdad territorial. Tal como vimos en los gráficos de precariedad y formación, incluso quienes cuentan con estudios superiores tienen un colchón limitado, y en ciertas comunidades (Andalucía, Murcia) el margen para guardar dinero se reduce drásticamente.
+
+El análisis indica que el ahorro no es solo una cuestión individual, sino el resultado de la interacción entre ingresos, gastos obligatorios y entorno económico. Por eso, la “incapacidad de ahorro” no refleja falta de planificación, sino que es una consecuencia de la precariedad estructural que atraviesa a la juventud española hoy.
+
+## 4.3 IMPLICACIONES CONDUCTUALES: DEL MODELO RACIONAL AL MODELO REAL
+
+A menudo, el discurso público sobre el ahorro juvenil se basa en un "modelo racional": se asume que si un joven no ahorra es por falta de voluntad, mala planificación o falta de cultura financiera. Sin embargo, los datos que he analizado en este trabajo obligan a desplazarnos hacia un "modelo real".
+
+Tras observar que más del 50% de los jóvenes viven en una situación de precariedad persistente, la psicología económica nos enseña que la escasez no es solo un problema de falta de dinero, sino que genera una "carga cognitiva" que agota nuestra capacidad de tomar decisiones a largo plazo. Cuando el entorno (el mercado laboral o el precio de la vivienda en tu CCAA) te obliga a centrar toda tu energía mental en "sobrevivir" al mes actual, el ahorro se convierte en una imposibilidad física y psicológica. No es que los jóvenes seamos irracionales; es que estamos respondiendo de forma lógica a un entorno de precariedad estructural que los datos han dejado muy claro.
+
+## 4.4 CONCLUSIÓN FINAL Y PERSPECTIVA PERSONAL
+
+Para cerrar este trabajo de Big Data, me quedo con una idea clara: los datos han confirmado lo que muchas veces solo intuíamos. He pasado de tener una opinión sobre la situación económica de los jóvenes a contar con evidencias estadísticas. El ahorro no es solo cuestión de “querer”: es un puzzle donde tu formación te da un escudo, pero el contexto histórico y el lugar donde vives acaban marcando tu destino económico.
+
+Además, como quiero centrar mi futuro TFG en esta problemática, este análisis me ha servido para profundizar en las fuentes de datos y dominar la parte técnica. Me ha permitido asentar una base numérica sólida para entender que, detrás de cada porcentaje en mis gráficos, hay una generación intentando sacar la cabeza en un escenario que se lo pone bastante difícil.
+
+
+```{r}
+
+#| echo: false
+#| message: false
+#| warning: false
+
+sessioninfo::session_info() %>% 
+  details::details(summary = 'current session info') 
+
+```
