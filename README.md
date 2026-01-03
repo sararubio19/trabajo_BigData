@@ -12,7 +12,7 @@ La página web de la asignatura puede verse aquí: <https://perezp44.github.io/i
 <!-- En la linea de abajo HAS de SUSTITUIR 
 "sararubio19" por tu usuario de Github-->
 La versión final del trabajo puede visualizarse 
-en: <https://sararubio19.github.io/trabajo_BigData_individual/>. 
+en: <https://sararubio19.github.io/trabajo_BigData/>. 
 
 El autor del trabajo soy yo, Sara Rubio Rosell (saruro@alumni.uv.es), .....
 
