@@ -10,16 +10,12 @@ La página web de la asignatura puede verse aquí: <https://perezp44.github.io/i
 
 
 <!-- En la linea de abajo HAS de SUSTITUIR 
-"perezp44" por tu usuario de Github-->
+"sararubio19" por tu usuario de Github-->
 La versión final del trabajo puede visualizarse 
-en: <https://perezp44.github.io/trabajo_BigData_individual/>. 
+en: <https://sararubio19.github.io/trabajo_BigData_individual/>. 
 
+El autor del trabajo soy yo, Sara Rubio Rosell (saruro@alumni.uv.es), .....
 
-<!-- Abajo podéis escribir lo que queráis, igual un resumen del trabajo, o ..., o ...
-pero al menos, tenéis que poner el título del trabajo y tu nombre -->
-
-El autor del trabajo soy yo,  Manuel Andorra Grande (macogaaaaxxx@alumni.uv.es), .....
-
-El título del trabajo es .....  En el trabajo se hace  .... blah-blah ...
+El título del trabajo es, Análisis de la precariedad económica juvenil en España (2004-2024)  En el trabajo se hace un estudio de la evolución de la dificultad para llegar a fin de mes y la capacidad de ahorro basado en microdatos del Instituto Nacional de Estadística (INE), analizando el impacto del nivel educativo y la distribución por comunidades autónomas.
 
 
